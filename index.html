@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>A 股模拟器</title>
+  <link rel="stylesheet" href="market.css">
+  <script src="market-news.js" defer></script>
+  <script src="market.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="top-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><h1>A 股模拟器</h1></div>
+      <div class="top-actions">
+        <span id="save-status" class="save-status" aria-live="polite">正在读取存档</span>
+        <button type="button" id="pause" class="button dark-button">存档</button>
+        <button type="button" id="exit" class="button dark-button">退出市场</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <section id="career-end" class="panel career-end" hidden aria-labelledby="end-title">
+      <p id="end-day" class="muted"></p>
+      <h2 id="end-title"></h2>
+      <div class="end-metrics" id="end-metrics"></div>
+      <div id="end-holdings" class="table-scroll"></div>
+      <div class="inline-actions">
+        <button id="new-career" class="button primary" type="button">开始新生涯</button>
+        <button class="button" type="button" data-export>导出本次存档</button>
+        <button class="button" type="button" data-import>导入存档</button>
+      </div>
+    </section>
+
+    <div id="market-screen">
+      <section class="session-bar" aria-label="当前交易日">
+        <div class="session-info">
+          <p class="session-date" id="day-label"></p>
+          <p class="session-clock"><time id="market-clock"></time><span id="market-status" class="muted"></span></p>
+        </div>
+        <div class="session-actions">
+          <span class="clock-rate muted">1 秒 = 5 分钟</span>
+          <button type="button" id="advance" class="button primary"></button>
+        </div>
+      </section>
+
+      <div id="workspace" class="workspace" data-page="watch">
+        <section id="browse-page" class="browse-page panel" aria-labelledby="market-heading">
+          <div class="section-header list-header">
+            <div class="panel-heading"><h2 id="market-heading" tabindex="-1">自选</h2><span class="muted" id="stock-count"></span></div>
+            <label for="stock-search" class="search">
+              <span class="search-icon" aria-hidden="true"></span>
+              <input id="stock-search" type="search" aria-label="搜索股票" placeholder="搜索名称、代码或概念" autocomplete="off">
+            </label>
+          </div>
+          <div class="market-strip" id="metrics" aria-label="市场概况"></div>
+          <div class="segments stock-filter" role="group" aria-label="股票筛选">
+            <button type="button" id="all-stocks" aria-pressed="true">我的自选</button>
+            <button type="button" id="held-stocks" aria-pressed="false">持仓</button>
+          </div>
+          <div class="list-heading" id="stock-sort" role="group" aria-label="行情排序">
+            <button type="button" data-sort="default" aria-pressed="true">名称 / 代码</button>
+            <button type="button" data-sort="price" aria-pressed="false">最新</button>
+            <button type="button" data-sort="percent" aria-pressed="false">涨幅</button>
+            <button type="button" data-sort="change" class="absolute-change" aria-pressed="false">涨跌</button>
+          </div>
+          <div class="list-heading holding-columns" id="holding-heading" hidden>
+            <span>名称 / 代码</span><span>持仓</span><span>成本 / 现价</span><span>浮动盈亏</span>
+          </div>
+          <div id="stock-list" class="stock-list"></div>
+        </section>
+
+        <section id="quote-page" class="quote-page panel" aria-labelledby="symbol-title">
+          <div class="security-header">
+            <button type="button" id="quote-back" class="button back-button"><span aria-hidden="true">‹</span> 自选</button>
+            <div class="security-title">
+              <h2 id="symbol-title" tabindex="-1"></h2>
+              <p id="symbol-meta" class="muted symbol-meta"></p>
+            </div>
+            <button type="button" id="favorite" class="button favorite-button" aria-pressed="false"><span aria-hidden="true">☆</span> 自选</button>
+          </div>
+          <div class="quote-summary">
+            <div class="quote-value"><strong id="symbol-price"></strong><span id="symbol-change"></span></div>
+            <dl class="quote-stats" id="quote-stats"></dl>
+          </div>
+          <div class="analysis" id="analysis" data-tab="chart">
+            <div id="chart-periods" class="chart-periods" role="group" aria-label="图表周期">
+              <button type="button" data-period="intraday" aria-pressed="false">分时</button>
+              <button type="button" data-period="day" aria-pressed="true">日 K</button>
+              <button type="button" data-period="week" aria-pressed="false">周 K</button>
+              <div id="daily-side-switch" class="daily-side-switch" role="group" aria-label="日 K 右侧内容" hidden>
+                <button type="button" data-daily-side="chips" aria-pressed="true">筹码</button>
+                <button type="button" data-daily-side="quotes" aria-pressed="false">价格</button>
+              </div>
+            </div>
+            <div class="analysis-body">
+              <section id="chart-panel" class="chart-panel" aria-label="个股走势">
+                <p id="chart-key" class="chart-key"></p>
+                <div class="chart-area">
+                  <canvas id="chart" role="img" aria-label="所选股票的日 K 线与成交量"></canvas>
+                  <div id="chart-crosshair" class="chart-crosshair" aria-hidden="true" hidden></div>
+                  <div id="chart-tooltip" class="chart-tooltip" hidden></div>
+                </div>
+              </section>
+              <section id="quote-book" class="quote-book" aria-label="盘口与分时成交">
+                <div id="book-tabs" class="book-tabs" role="group" aria-label="盘口内容">
+                  <button type="button" data-book="ladder" aria-pressed="true">五档</button>
+                  <button type="button" data-book="tape" aria-pressed="false">明细</button>
+                </div>
+                <div id="book"></div>
+              </section>
+              <section id="chip-panel" class="chip-panel" aria-label="持仓成本分布" hidden>
+                <div class="chip-heading"><h3>筹码</h3><span id="chip-date" class="muted"></span></div>
+                <div class="chart-area chip-chart-area">
+                  <canvas id="chip-chart" role="img" aria-label="筹码成本分布"></canvas>
+                  <p id="chip-empty" class="chip-empty" hidden></p>
+                </div>
+                <dl id="chip-stats" class="chip-stats"></dl>
+                <p class="chip-legend" title="模拟持仓，含限售和质押"><span class="chip-profit">获利</span><span class="chip-flat">持平</span><span class="chip-loss">套牢</span></p>
+              </section>
+              <section id="quote-news" class="quote-news" aria-label="个股资讯">
+                <div class="panel-heading"><h3>个股资讯</h3><button type="button" id="more-news" class="link-button">全部资讯 ›</button></div>
+                <div id="related-channels" class="segments news-channels" role="group" aria-label="个股资讯栏目">
+                  <button type="button" data-channel="report" aria-pressed="false">财报</button>
+                  <button type="button" data-channel="news" aria-pressed="true">新闻</button>
+                  <button type="button" data-channel="forum" aria-pressed="false">论坛</button>
+                </div>
+                <div id="related-news" class="news-list"></div>
+              </section>
+            </div>
+            <div id="quote-tabs" class="quote-tabs" role="group" aria-label="个股内容">
+              <button type="button" data-detail="chart" aria-pressed="true">走势</button>
+              <button type="button" data-detail="book" aria-pressed="false">盘口</button>
+              <button type="button" data-detail="news" aria-pressed="false">资讯</button>
+            </div>
+          </div>
+          <div class="quote-actions">
+            <button type="button" id="quote-buy" class="button buy-action">买入</button>
+            <button type="button" id="quote-sell" class="button sell-action">卖出</button>
+          </div>
+        </section>
+
+        <section id="news-page" class="panel standalone-page" hidden aria-labelledby="news-heading">
+          <div class="section-header panel-heading"><h2 id="news-heading" tabindex="-1">市场资讯</h2><span class="muted">按发布时间</span></div>
+          <div id="news-channels" class="segments news-filter news-channels" role="group" aria-label="市场资讯栏目">
+            <button type="button" data-channel="report" aria-pressed="false">财报</button>
+            <button type="button" data-channel="news" aria-pressed="true">新闻</button>
+            <button type="button" data-channel="forum" aria-pressed="false">论坛</button>
+          </div>
+          <div class="segments news-filter" role="group" aria-label="资讯筛选">
+            <button type="button" id="all-news" aria-pressed="true">全部</button>
+            <button type="button" id="selected-news" aria-pressed="false">个股及相关主题</button>
+          </div>
+          <div id="news" class="news-list"></div>
+        </section>
+
+        <section id="trade-page" class="panel standalone-page trade-page" data-view="positions" hidden aria-labelledby="trade-title">
+          <div class="section-header panel-heading"><h2 id="trade-title" tabindex="-1">模拟账户</h2><button type="button" id="trade-quote" class="link-button">查看个股 ›</button></div>
+          <div id="account-tabs" class="account-tabs" role="group" aria-label="账户操作">
+            <button type="button" data-view="buy" aria-pressed="false">买入</button>
+            <button type="button" data-view="sell" aria-pressed="false">卖出</button>
+            <button type="button" data-view="conditions" aria-pressed="false">条件单</button>
+            <button type="button" data-view="orders" aria-pressed="false">撤单</button>
+            <button type="button" data-view="positions" aria-pressed="true">持仓</button>
+            <button type="button" data-view="fills" aria-pressed="false">成交</button>
+            <button type="button" data-view="forces" aria-pressed="false">资金流向</button>
+          </div>
+          <div id="trade-metrics" class="trade-metrics" aria-label="账户总览"></div>
+          <div class="trade-layout">
+            <section class="ticket-panel" aria-labelledby="ticket-heading">
+              <div class="panel-heading">
+                <h3 id="ticket-heading">限价委托</h3>
+                <button type="button" id="open-protection" class="link-button" hidden>止盈止损</button>
+              </div>
+              <form id="trade-form" novalidate>
+                <label for="ticket-symbol">股票</label>
+                <select id="ticket-symbol"></select>
+                <div id="condition-side-field" hidden>
+                  <label for="condition-side">委托方向</label>
+                  <select id="condition-side">
+                    <option value="buy">买入</option>
+                    <option value="sell">卖出</option>
+                  </select>
+                </div>
+                <label for="order-kind" id="order-kind-label">委托类型</label>
+                <select id="order-kind">
+                  <option id="plain-order-option" value="limit">普通限价单</option>
+                  <option value="above">条件单 · 涨到或高于</option>
+                  <option value="below">条件单 · 跌到或低于</option>
+                </select>
+                <div id="trigger-field" hidden>
+                  <label for="trigger">触发价 <span>元 / 股</span></label>
+                  <div class="field-row"><input id="trigger" type="number" min="0.01" step="0.01" inputmode="decimal"></div>
+                </div>
+                <label for="limit">限价 <span>元 / 股</span></label>
+                <div class="field-row"><input id="limit" type="number" step="0.01" inputmode="decimal" required><button id="at-quote" type="button" class="button field-button">卖一</button></div>
+                <label for="quantity">数量 <span>100 股 / 手</span></label>
+                <div class="field-row"><input id="quantity" type="number" min="100" step="100" inputmode="numeric" value="100" required><button id="max-quantity" type="button" class="button field-button">最大</button></div>
+                <div class="order-estimate" id="order-estimate"></div>
+                <button type="submit" id="place" class="button order-button">提交买入委托</button>
+                <p id="order-status" class="form-status" aria-live="polite"></p>
+              </form>
+            </section>
+            <section class="account-panel" aria-labelledby="account-heading">
+              <div class="panel-heading"><h3 id="account-heading">账户记录</h3></div>
+              <p class="muted account-caption" id="account-caption"></p>
+              <div id="account-table" class="table-scroll"></div>
+            </section>
+          </div>
+        </section>
+      </div>
+
+      <nav id="app-nav" class="app-nav" aria-label="主导航">
+        <button type="button" data-page="watch" aria-current="page"><span class="nav-icon" aria-hidden="true">☆</span>自选</button>
+        <button type="button" data-page="market"><span class="nav-icon chart-icon" aria-hidden="true">▥</span>行情</button>
+        <button type="button" data-page="news"><span class="nav-icon" aria-hidden="true">▤</span>资讯</button>
+        <button type="button" data-page="trade"><span class="nav-icon" aria-hidden="true">⇄</span>交易</button>
+      </nav>
+    </div>
+  </main>
+
+  <dialog id="save-dialog" aria-labelledby="save-title">
+    <h2 id="save-title">存档已暂停</h2>
+    <p id="save-detail" class="muted"></p>
+    <div class="inline-actions">
+      <button id="resume" type="button" class="button primary" autofocus>继续交易</button>
+      <button type="button" class="button" data-export>导出存档</button>
+      <button type="button" class="button" data-import>导入存档</button>
+    </div>
+    <p id="save-error" class="form-status" aria-live="polite"></p>
+  </dialog>
+
+  <dialog id="exit-dialog" aria-labelledby="exit-title">
+    <h2 id="exit-title">退出市场</h2>
+    <p class="muted">确认后结束本段投资生涯，撤销未成交委托，并按当前行情生成报告。</p>
+    <div class="inline-actions">
+      <button id="keep-playing" type="button" class="button" autofocus>继续经营</button>
+      <button id="confirm-exit" type="button" class="button order-button">确认退出市场</button>
+    </div>
+  </dialog>
+  <dialog id="protection-dialog" aria-labelledby="protection-title">
+    <h2 id="protection-title">止盈止损</h2>
+    <form id="protection-form" novalidate>
+      <label for="protection-symbol">持仓股票</label>
+      <select id="protection-symbol"></select>
+      <p id="protection-summary" class="order-estimate"></p>
+      <div class="protection-prices">
+        <div><label for="take-profit">止盈价 <span>元 / 股</span></label><div class="field-row"><input id="take-profit" type="number" min="0.01" step="0.01" inputmode="decimal"></div></div>
+        <div><label for="stop-loss">止损价 <span>元 / 股</span></label><div class="field-row"><input id="stop-loss" type="number" min="0.01" step="0.01" inputmode="decimal"></div></div>
+      </div>
+      <p class="muted protection-help">可填一项或两项。任一触发后，另一项自动撤销。按触发时可卖股数提交卖单，成交取决于盘口。</p>
+      <div class="inline-actions">
+        <button type="submit" class="button order-button">保存设置</button>
+        <button type="button" class="button" id="close-protection">取消</button>
+        <button type="button" class="link-button" id="remove-protection" hidden>撤销止盈止损</button>
+      </div>
+      <p id="protection-error" class="form-status" aria-live="polite"></p>
+    </form>
+  </dialog>
+  <input id="save-file" type="file" accept="application/json,.json" hidden>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

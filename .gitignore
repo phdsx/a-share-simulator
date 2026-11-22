@@ -1,0 +1,5 @@
+# Browser-exported saves and local backups
+a-share-save-*.json
+/save/
+/saves/
+*.save.json
